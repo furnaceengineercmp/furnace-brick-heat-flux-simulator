@@ -1,89 +1,118 @@
 <!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Simulasi 3D Heat Flux Furnace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f5f2;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--bd:#ddd9d0;--ac:#c2410c}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--tx:#eceae4;--mu:#9b9a93;--bd:#37362f;--ac:#fb923c}}
-:root[data-theme="dark"]{--bg:#161615;--card:#212120;--tx:#eceae4;--mu:#9b9a93;--bd:#37362f;--ac:#fb923c}
-body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:1050px;margin:0 auto;padding:16px}h1{font-size:20px;margin:4px 0}h2{font-size:15px;margin:0 0 8px}
-.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
-.c{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
-label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;margin:5px 0}
-input[type=number],input[type=text],select{width:110px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);text-align:right;font-size:13px}
-select{width:auto;max-width:170px}
-button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 18px;font-size:14px;cursor:pointer;margin:12px 0}
-#v{width:100%;height:520px;border-radius:10px;border:1px solid var(--bd);background:linear-gradient(#27303a,#10141a);position:relative;overflow:hidden}
-.mu{color:var(--mu);font-size:12px}.big{font-size:26px;font-weight:600;color:var(--ac)}
-#lg{height:10px;border-radius:5px;background:linear-gradient(90deg,hsl(240,90%,50%),hsl(120,90%,50%),hsl(0,90%,50%));margin:6px 0 2px}
-#st{position:absolute;left:10px;top:8px;font-size:12px;color:#aab}
-table{border-collapse:collapse;font-size:12px;width:100%}td,th{border-bottom:1px solid var(--bd);padding:2px 6px;text-align:right}
-details{margin-top:8px}summary{cursor:pointer;font-size:13px}
-</style></head><body><main>
-<h1>Simulasi 3D Heat Flux Furnace Rectangular (Copper Cooler)</h1>
-<p class="mu">Solver finite volume 2D pada penampang dinding dengan bentuk cooler asli (E: rusuk di atas, I: pelat, Y: baji skewback), diekstrusi 3D. Ketebalan brick + frozen slag dicari otomatis agar flux model sama dengan flux terukur dari air, lalu ditampilkan pada model furnace utuh (32 × 10,54 m, dinding miring 10°, 6 elektroda, molten slag/FeNi).</p>
-<div class="g">
-<div class="c"><h2>Cooler &amp; air pendingin</h2>
-<label>Sumber heat flux<select id="src"><option value="w">Dari data air (transmitter)</option><option value="q">Input flux langsung</option></select></label>
-<label>Heat flux input<span style="display:flex;gap:4px"><input type="number" id="qin" value="50.8" step="0.1" style="width:80px"><select id="qu"><option value="k">kW/m²</option><option value="b">Btu/h·ft²</option></select></span></label>
-<div class="mu">Mode "Input flux langsung": hasil = tebal brick untuk flux itu. Untuk cooler vertical pilih tipe V. Laju air hanya dipakai untuk menghitung ΔT air dan profil temperatur air.</div>
-<label>Tipe cooler<select id="tp"><option>Y</option><option>V</option><option>E</option></select></label>
-<label>Area furnace<select id="zn"><option value="B">West – Skimming</option><option value="A">East – Tapping</option><option value="C">North</option><option value="D">South</option></select></label>
-<label>No. cooler<select id="ci"></select></label>
-<label>Luas kontak brick (m²)<input type="number" id="A" step="0.001"></label>
-<label>Jumlah pipa (hanya inlet)<input type="number" id="np" value="2"></label>
-<label>Laju per pipa (m³/h)<input type="text" id="fl" value="5.2"></label>
-<div class="mu">V: 3 inlet + 3 outlet dihitung 3. E dan Y: 2 inlet + 2 outlet dihitung 2 (terisi otomatis saat tipe diganti). Isi satu angka = sama untuk semua pipa. Isi beberapa angka dipisah koma (mis. 28, 31, 30, 29) = dijumlahkan. <b id="ft"></b></div>
-<label>T air masuk (°C)<input type="number" id="Ti" value="32"></label>
-<label>T air keluar / transmitter (°C)<input type="number" id="To" value="36"></label></div>
-<div class="c"><h2>Material &amp; batas</h2>
-<label>Jenis brick<select id="bt"><option>M95</option><option selected>M97</option></select></label>
-<label>Model k brick<select id="km"><option value="T">k(T) dari tabel</option><option value="c">k konstan (isi sendiri)</option><option value="h">k konstan = k pada T hot face</option></select></label>
-<label>k konstan / pembanding Excel (W/mK)<input type="number" id="kx" value="2.8" step="0.1"></label>
-<label>T hot face (°C)<input type="number" id="Th" value="1550"></label>
-<label>Tebal copper (m)<input type="number" id="tc" value="0.31" step="0.005"></label>
-<label>Tinggi cooler Y (m, perkiraan)<input type="number" id="hy" value="0.95" step="0.05"></label>
-<label>Tebal brick awal (m)<input type="number" id="L0" value="0.45" step="0.01"></label>
-<label>k frozen slag (W/mK, asumsi)<input type="number" id="ksl" value="1.5" step="0.1"></label>
-<label>T beku slag di hot face (°C, asumsi)<input type="number" id="tfr" value="1400"></label>
-<label>Tebal steel (m)<input type="number" id="ts" value="0.05" step="0.005"></label>
-<label>Tahanan kontak (m²K/W)<input type="number" id="Rc" value="0.0005" step="0.0001"></label>
-<label>h air–copper dianggap besar; h udara (W/m²K)<input type="number" id="ha" value="12"></label>
-<label>T udara (°C)<input type="number" id="Ta" value="30"></label>
-<details><summary>Data k(T) yang dipakai di rumus</summary><div id="kt"></div><div class="mu">Dinterpolasi linear di setiap sel; di luar rentang tabel memakai nilai ujung.</div></details></div></div>
-<button id="go">Hitung &amp; Tampilkan 3D</button>
-<div class="g" style="margin-bottom:12px">
-<div class="c"><div class="mu">Sisa brick + frozen slag</div><div class="big" id="rL">-</div><div class="mu" id="rD"></div><div class="mu" id="cmp" style="margin-top:6px"></div><div class="mu" id="fam" style="margin-top:6px"></div></div>
-<div class="c"><label>Tampilan<select id="vw"><option value="w">Profil dinding (irisan vertikal)</option><option value="f">Furnace utuh</option><option value="s">Penampang cooler 3D</option></select></label>
-<label>Cooler yang ditampilkan<select id="sm"><option value="t">Tipe terpilih</option><option value="E">E</option><option value="V">V</option><option value="Y">Y</option><option value="all">Ketiganya berdampingan</option></select></label>
-<label><span>Sembunyikan dinding selatan</span><input type="checkbox" id="hs" checked></label>
-<label>Skala tebal dinding<input type="range" id="xs" min="1" max="8" value="4"></label>
-<label><span>Sembunyikan steel shell</span><input type="checkbox" id="hst" checked></label>
-<label><span>Brick tembus pandang</span><input type="checkbox" id="tb" checked></label>
-<div id="lg"></div><div class="mu" style="display:flex;justify-content:space-between"><span id="tmin"></span><span id="tmax"></span></div></div></div>
-<div style="display:flex;gap:8px;margin:0 0 8px"><button id="pm" style="margin:0;padding:6px 12px">Mode kiri: Putar</button><button id="rc" style="margin:0;padding:6px 12px">Reset kamera</button><span class="mu" style="align-self:center">Geser: klik kanan + seret, atau mode Geser, atau 2 jari.</span></div>
-<div id="v"><div id="st">Seret = putar · scroll = zoom · Panel tembaga = cooler. Dinding terpilih diberi garis putih. Dinding diasumsikan seragam (hasil panel terpilih).</div></div>
-<div class="c" style="margin-top:12px"><h2>Simulasi level slag &amp; erosi brick (tidal zone)</h2>
-<div class="g">
-<div><label>Produksi slag (t/jam)<input type="number" id="sp" value="90"></label>
-<label>Laju skimming (t/jam)<input type="number" id="sk" value="170"></label>
-<label>Jadwal skimming (jam ke-, mulai-selesai)<input type="text" id="sch" value="2-4, 6-8, 10-12, 14-16, 18-20, 22-24" style="width:130px"></label>
-<label>Durasi simulasi (jam)<input type="number" id="hz" value="24"></label></div>
-<div><label>Luas zona slag (m²)<input type="number" id="ar" value="329.84"></label>
-<label>Densitas slag (t/m³)<input type="number" id="rs" value="2.87" step="0.01"></label>
-<label>Level awal slag di atas lubang slag (m)<input type="number" id="l0" value="0.7" step="0.05"></label>
-<label>Level minimum slag di atas lubang slag (m)<input type="number" id="lm" value="0.7" step="0.05"></label>
-<label>Batas FeNi ke lubang slag (m)<input type="number" id="dfe" value="0.55" step="0.05"></label>
-<label>Laju erosi dasar (mm/jam)<input type="number" id="we" value="0.25" step="0.01"></label>
-<label>Faktor tambahan di garis slag (×)<input type="number" id="tf" value="5"></label>
-<label>Pembesaran visual erosi (×)<input type="number" id="wx" value="5"></label></div></div>
-<label>Waktu simulasi<input type="range" id="tm" min="0" max="240" value="0" style="width:60%"><button id="pl" style="margin:0;padding:6px 12px">▶ Putar</button></label>
-<canvas id="ch" width="900" height="150" style="width:100%;height:150px"></canvas>
-<div id="ss" class="mu"></div>
-<canvas id="c2" width="900" height="300" style="width:100%;height:300px"></canvas>
-<p class="mu">Posisi (dari tengah hearth): tap hole FeNi 0,60 m, lubang slag 1,40 m, batas FeNi = lubang slag − 0,55 m, cooler Y/V/E di sekitar 0,62 m / 0,62–2,15 m / 2,15–2,70 m. Level naik = (produksi − skimming) ÷ (densitas × luas); skimming berhenti jika level mencapai batas minimum. Erosi dihitung per ketinggian: kontak slag = laju dasar, zona FeNi = 30% dari dasar, dan di sekitar garis slag (±12 cm, yang naik-turun) ditambah faktor tidal. Hasil tampilan furnace memakai ketebalan awal dari perhitungan flux sebagai kondisi saat ini. Laju erosi default hanya contoh; isi dengan data lapangan Anda.</p></div>
-<div id="sx" class="mu" style="margin-top:8px"></div>
-<p class="mu">Lubang skimming di sisi West, tap hole FeNi di sisi East. Zona molten: slag 1,0 m, FeNi/buffer 0,8 m, death zone 0,6 m; calcine menumpuk di tepi dinding.</p>
-</main>
+:root{box-sizing:border-box;--bg:#f4f3ef;--card:#fff;--tx:#1c1b19;--mu:#77756e;--bd:#e4e1d8;--ac:#d9480f;--ac2:#fff4ec;--ok:#2b8a3e;--wr:#e67700;--sh:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121211;--card:#1c1c1a;--tx:#ecebe6;--mu:#98968e;--bd:#2f2e2a;--ac:#ff8a4c;--ac2:#2a2018;--sh:none}}
+:root[data-theme="dark"]{--bg:#121211;--card:#1c1c1a;--tx:#ecebe6;--mu:#98968e;--bd:#2f2e2a;--ac:#ff8a4c;--ac2:#2a2018;--sh:none}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{max-width:1280px;margin:0 auto;padding:18px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+h1{font-size:22px;margin:0;letter-spacing:-.3px}header p{margin:2px 0 0;color:var(--mu)}
+.steps{display:flex;gap:8px;list-style:none;margin:0;padding:0;flex-wrap:wrap}.steps li{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:4px 12px 4px 5px;font-size:12px;color:var(--mu);display:flex;align-items:center;gap:7px}
+.steps b{background:var(--ac);color:#fff;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:11px}
+.layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+aside{display:flex;flex-direction:column;gap:12px;position:sticky;top:12px}@media(max-width:900px){aside{position:static}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;box-shadow:var(--sh)}
+.card h2,summary{font-size:13px;font-weight:600;margin:0 0 8px}
+details.card>summary{cursor:pointer;margin:0;list-style:none}details.card>summary::after{content:"＋";float:right;color:var(--mu)}details[open].card>summary::after{content:"－"}details[open].card>summary{margin-bottom:8px}
+label.r{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:13px;color:var(--mu)}label.r>span:first-child{flex:1}
+input[type=number],input[type=text],select{padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:13px;width:100px;text-align:right}
+select{width:auto;max-width:150px;text-align:left}input:focus,select:focus{outline:2px solid var(--ac);outline-offset:0}
+.seg{display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:2px;gap:2px}.seg button{flex:1;border:0;background:none;color:var(--mu);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;white-space:nowrap}.seg button.on{background:var(--card);color:var(--ac);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+button.go{width:100%;background:var(--ac);color:#fff;border:0;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer}button.go:hover{filter:brightness(1.08)}
+.hint{color:var(--mu);font-size:12px;margin:4px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px}
+.kpi small{color:var(--mu);font-size:12px;display:block}.kpi .n{font-size:28px;font-weight:700;letter-spacing:-.5px;line-height:1.15;color:var(--ac)}.kpi .s{font-size:12px;color:var(--mu);margin-top:2px}
+.badge{display:inline-block;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;background:var(--ac2);color:var(--ac)}
+.viewbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.chip{display:flex;align-items:center;gap:5px;border:1px solid var(--bd);background:var(--card);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--mu);cursor:pointer}.chip input{margin:0}
+.chip.btn{cursor:pointer}.chip.btn:hover{border-color:var(--ac);color:var(--ac)}
+#v{width:100%;height:min(64vh,560px);min-height:380px;border-radius:14px;border:1px solid var(--bd);background:linear-gradient(#2a323c,#0f1318);position:relative;overflow:hidden}
+#st{position:absolute;right:10px;top:8px;font-size:11px;color:#9aa3ad;pointer-events:none}
+.legend{position:absolute;left:12px;bottom:10px;width:220px;color:#cdd3da;font-size:11px;pointer-events:none}#lg{height:8px;border-radius:4px;background:linear-gradient(90deg,hsl(240,90%,50%),hsl(120,90%,50%),hsl(0,90%,50%));margin:3px 0}.legend div.l{display:flex;justify-content:space-between}
+.timeline{display:flex;align-items:center;gap:10px;margin:8px 0}.timeline input[type=range]{flex:1;accent-color:var(--ac)}.timeline button{border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;padding:5px 14px;cursor:pointer}
+#ss{font-size:12.5px;color:var(--mu);margin-bottom:6px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin:14px 0 10px;overflow-x:auto}.tabs button{border:0;background:none;color:var(--mu);padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-size:13px}.tabs button.on{color:var(--ac);border-color:var(--ac);font-weight:600}
+.panel{display:none}.panel.on{display:block}
+table{border-collapse:collapse;font-size:12.5px;width:100%}td,th{border-bottom:1px solid var(--bd);padding:4px 8px;text-align:right}th:first-child,td:first-child{text-align:left}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 24px}
+canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
+#rD{line-height:1.7}
+</style></head><body><div class="app">
+<header><div><h1>Simulasi Heat Flux Furnace</h1><p>Perkirakan sisa brick dari data air cooler, lalu lihat hasilnya dalam 3D.</p></div>
+<ol class="steps"><li><b>1</b>Isi data cooler &amp; air</li><li><b>2</b>Tekan Hitung</li><li><b>3</b>Putar 3D &amp; jalankan simulasi</li></ol></header>
+<div class="layout">
+<aside>
+<div class="card"><h2>① Cooler</h2>
+<div class="seg" style="margin-bottom:8px"><button type="button" data-src="w" class="on">Dari data air</button><button type="button" data-src="q">Input flux</button></div>
+<select id="src" style="display:none"><option value="w">w</option><option value="q">q</option></select>
+<label class="r" id="rowq" style="display:none"><span>Heat flux</span><span style="display:flex;gap:4px"><input type="number" id="qin" value="50.8" step="0.1" style="width:80px"><select id="qu"><option value="k">kW/m²</option><option value="b">Btu/h·ft²</option></select></span></label>
+<label class="r"><span>Tipe</span><select id="tp"><option>Y</option><option>V</option><option>E</option></select></label>
+<label class="r"><span>Area</span><select id="zn"><option value="B">West – Skimming</option><option value="A">East – Tapping</option><option value="C">North</option><option value="D">South</option></select></label>
+<label class="r"><span>No. cooler</span><select id="ci"></select></label>
+<label class="r"><span>Luas kontak brick (m²)</span><input type="number" id="A" step="0.001"></label></div>
+<div class="card"><h2>② Air pendingin</h2>
+<label class="r"><span>Jumlah pipa (inlet saja)</span><input type="number" id="np" value="2"></label>
+<label class="r"><span>Laju per pipa (m³/h)</span><input type="text" id="fl" value="5.2"></label>
+<div class="hint">V: 3 inlet+3 outlet = isi 3. E dan Y: 2+2 = isi 2. Beberapa angka dipisah koma akan dijumlahkan. <b id="ft"></b></div>
+<label class="r"><span>T air masuk (°C)</span><input type="number" id="Ti" value="32"></label>
+<label class="r"><span>T air keluar (°C)</span><input type="number" id="To" value="36"></label></div>
+<details class="card"><summary>③ Material &amp; asumsi (lanjutan)</summary>
+<label class="r"><span>Jenis brick</span><select id="bt"><option>M95</option><option selected>M97</option></select></label>
+<label class="r"><span>Model k brick</span><select id="km"><option value="T">k(T) tabel</option><option value="c">k konstan</option><option value="h">k di T hot face</option></select></label>
+<label class="r"><span>k konstan / pembanding (W/mK)</span><input type="number" id="kx" value="2.8" step="0.1"></label>
+<label class="r"><span>T hot face (°C)</span><input type="number" id="Th" value="1550"></label>
+<label class="r"><span>Tebal brick awal (m)</span><input type="number" id="L0" value="0.45" step="0.01"></label>
+<label class="r"><span>k frozen slag (W/mK)</span><input type="number" id="ksl" value="1.5" step="0.1"></label>
+<label class="r"><span>T beku slag (°C)</span><input type="number" id="tfr" value="1400"></label>
+<label class="r"><span>Tebal copper (m)</span><input type="number" id="tc" value="0.31" step="0.005"></label>
+<label class="r"><span>Tinggi cooler Y (m, perkiraan)</span><input type="number" id="hy" value="0.95" step="0.05"></label>
+<label class="r"><span>Tebal steel (m)</span><input type="number" id="ts" value="0.05" step="0.005"></label>
+<label class="r"><span>Tahanan kontak (m²K/W)</span><input type="number" id="Rc" value="0.0005" step="0.0001"></label>
+<label class="r"><span>h udara (W/m²K)</span><input type="number" id="ha" value="12"></label>
+<label class="r"><span>T udara (°C)</span><input type="number" id="Ta" value="30"></label></details>
+<button class="go" id="go">Hitung &amp; Tampilkan 3D</button>
+</aside>
+<section class="main">
+<div class="kpis">
+<div class="card kpi"><small>Sisa brick</small><div class="n" id="rL">-</div><div class="s" id="rS">Tekan Hitung</div></div>
+<div class="card kpi"><small>Heat flux</small><div class="n" id="kq">-</div><div class="s" id="kb"></div></div>
+<div class="card kpi"><small>Brick tersisa minimum (simulasi)</small><div class="n" id="kmin">-</div><div class="s" id="kmh"></div></div>
+<div class="card kpi"><small>Status</small><div style="margin-top:6px"><span class="badge" id="ks">Belum dihitung</span></div><div class="s" id="ks2"></div></div></div>
+<div class="viewbar">
+<div class="seg"><button type="button" data-vw="w" class="on">Profil dinding</button><button type="button" data-vw="f">Furnace utuh</button><button type="button" data-vw="s">Penampang cooler</button></div>
+<select id="vw" style="display:none"><option value="w">w</option><option value="f">f</option><option value="s">s</option></select>
+<select id="sm" style="display:none"><option value="t">Tipe terpilih</option><option value="E">E</option><option value="V">V</option><option value="Y">Y</option><option value="all">Ketiganya berdampingan</option></select>
+<label class="chip" id="chs"><input type="checkbox" id="hs" checked>Sembunyikan dinding selatan</label>
+<label class="chip"><input type="checkbox" id="hst" checked>Sembunyikan steel</label>
+<label class="chip"><input type="checkbox" id="tb" checked>Brick tembus pandang</label>
+<label class="chip">Tebal ×<input type="range" id="xs" min="1" max="8" value="4" style="width:70px"></label>
+<button type="button" class="chip btn" id="pm">Putar</button><button type="button" class="chip btn" id="rc">Reset kamera</button></div>
+<div id="v"><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
+<div class="timeline"><button type="button" id="pl">▶ Putar</button><input type="range" id="tm" min="0" max="240" value="0"><span class="mu">waktu simulasi</span></div>
+<div id="ss"></div><div id="sx" class="mu"></div>
+<div class="tabs"><button data-tab="p1" class="on">Detail hasil</button><button data-tab="p2">Frozen slag &amp; ketidakpastian</button><button data-tab="p3">Simulasi slag &amp; erosi</button><button data-tab="p4">Data k(T)</button></div>
+<div class="panel on" id="p1"><div id="rD"></div><div id="cmp" class="mu" style="margin-top:6px"></div></div>
+<div class="panel" id="p2"><div id="fam"></div></div>
+<div class="panel" id="p3"><div class="two">
+<div><label class="r"><span>Produksi slag (t/jam)</span><input type="number" id="sp" value="90"></label>
+<label class="r"><span>Laju skimming (t/jam)</span><input type="number" id="sk" value="170"></label>
+<label class="r"><span>Jadwal skimming (jam)</span><input type="text" id="sch" value="2-4, 6-8, 10-12, 14-16, 18-20, 22-24" style="width:170px"></label>
+<label class="r"><span>Durasi (jam)</span><input type="number" id="hz" value="24"></label>
+<label class="r"><span>Luas zona slag (m²)</span><input type="number" id="ar" value="329.84"></label>
+<label class="r"><span>Densitas slag (t/m³)</span><input type="number" id="rs" value="2.87" step="0.01"></label></div>
+<div><label class="r"><span>Level awal di atas lubang slag (m)</span><input type="number" id="l0" value="0.7" step="0.05"></label>
+<label class="r"><span>Level minimum (m)</span><input type="number" id="lm" value="0.7" step="0.05"></label>
+<label class="r"><span>Batas FeNi ke lubang slag (m)</span><input type="number" id="dfe" value="0.55" step="0.05"></label>
+<label class="r"><span>Laju erosi dasar (mm/jam)</span><input type="number" id="we" value="0.25" step="0.01"></label>
+<label class="r"><span>Faktor di garis slag (×)</span><input type="number" id="tf" value="5"></label>
+<label class="r"><span>Pembesaran visual erosi (×)</span><input type="number" id="wx" value="5"></label></div></div>
+<canvas id="ch" class="c" width="900" height="150" style="height:150px"></canvas>
+<canvas id="c2" class="c" width="900" height="300" style="height:300px;margin-top:8px"></canvas>
+<p class="mu">Level naik = (produksi − skimming) ÷ (densitas × luas); skimming berhenti di level minimum. Posisi dari tengah hearth: tap hole 0,60 m, lubang slag 1,40 m, cooler Y/V/E ±0,62 / 0,62–2,15 / 2,15–2,70 m. Laju erosi default hanyalah contoh; isi dengan data lapangan.</p></div>
+<div class="panel" id="p4"><div id="kt"></div><p class="mu">Dinterpolasi linear per sel; di luar rentang tabel dipakai nilai ujung.</p></div>
+</section></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -228,6 +257,7 @@ function runSim(){const A=$('ar'),rs=$('rs'),pr=$('sp'),sk=$('sk'),dt=.1,N=Math.
  sim={lev,wear,skim,win,N,dt};g$('tm').max=N;if(+g$('tm').value>N)g$('tm').value=N}
 function upd(){if(!sim||!cur)return;const k=Math.min(+g$('tm').value,sim.N),wr=sim.wear[k],L=cur.L,p=cur.p;let mi=0;wr.forEach((w,i)=>{if(w>wr[mi])mi=i});
  const Lm=L-wr[mi],Tw=(p.Ti+p.To)/2,q=(p.Th-Tw)/(Lm/kbf(p,.6*p.Th)+p.tc/itp(TB.CU,100)+p.Rc+1/8000);
+ g$('kmin').textContent=(Lm*1000).toFixed(0)+' mm';g$('kmh').textContent='pada '+((mi+.5)*5.4/NBd).toFixed(1)+' m, terkikis '+(wr[mi]*1000).toFixed(1)+' mm ('+(wr[mi]/L*100).toFixed(1)+'%)';
  g$('ss').innerHTML=`<b>Jam ke-${(k*sim.dt).toFixed(1)}</b> · level slag ${(1.4+sim.lev[k]).toFixed(2)} m (${sim.skim[k]?'SEDANG SKIMMING':'tidak skimming'}) · brick tersisa minimum <b>${(Lm*1000).toFixed(0)} mm</b> pada ketinggian ${((mi+.5)*5.4/NBd).toFixed(1)} m (awal ${(L*1000).toFixed(0)} mm) · estimasi flux 1D di titik itu ≈ ${(q/1000).toFixed(1)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft²`;
  const c=g$('ch'),x=c.getContext('2d'),W=c.width,H=c.height,tx=t=>40+t/(sim.N*sim.dt)*(W-60),ly=l=>H-25-l/1.6*(H-40),st=getComputedStyle(document.documentElement);
  x.clearRect(0,0,W,H);x.fillStyle='rgba(255,180,50,.25)';sim.win.forEach(w=>x.fillRect(tx(w[0]),5,tx(w[1])-tx(w[0]),H-30));
@@ -255,7 +285,7 @@ function run(){const p=P(),qm=g$('src').value==='q',rho_=rho*cp/3600;let dT=p.To
  const ev=qq=>{const Tc=Tw0+qq*Rr0,Ls=kirch(p,Tc,p.Th)/qq;let Ti=p.Th,sl=0;if(Ls>L0){Ti=Tof(p,Tc,qq*L0);sl=Math.max(0,ksl*(tfr-Ti)/qq)}return{Ls,Ti,sl}};
  let L=L1,pp=p,e=ev(q);const two=L1>L0;if(two){L=L0;pp={...p,Th:e.Ti}}
  lastT=null;const r=sol(pp,L);cur={p:pp,r,L,s:two?e.sl:0,Tfr:tfr,Th0:p.Th};const BH=3412.14;
- el.textContent=two?`${(L*1000).toFixed(0)} mm brick + ±${(e.sl*1000).toFixed(0)} mm frozen slag`:(L*1000).toFixed(0)+' mm ('+(L/.0254).toFixed(1)+' in)';
+ el.textContent=(L*1000).toFixed(0)+' mm';g$('rS').textContent=two?`brick utuh (batas atas) + ±${(e.sl*1000).toFixed(0)} mm frozen slag`:`${(L/.0254).toFixed(1)} in · tanpa indikasi frozen slag`;g$('kq').textContent=(q/1000).toFixed(1)+' kW/m²';g$('kb').textContent=(q*BT).toFixed(0)+' Btu/h·ft²';g$('ks').textContent=two?'Frozen slag terindikasi':'Brick saja';g$('ks2').textContent=two?'1 lapisan akan '+(L1*1000).toFixed(0)+' mm > brick awal':'Konsisten dengan brick awal';
  let tx=`<b>Heat flux = ${(q/1000).toFixed(2)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft²</b><br>Q air = ${(Q/1000).toFixed(1)} kW = ${(Q*BH).toExponential(3)} Btu/h`;
  if(two)tx+=`<br><b>Satu lapisan brick saja akan ${(L1*1000).toFixed(0)} mm &gt; brick awal ${(L0*1000).toFixed(0)} mm → tidak mungkin.</b> Artinya flux terlalu rendah untuk brick bersuhu ${p.Th} °C di permukaan: permukaan brick hanya ±${e.Ti.toFixed(0)} °C, jadi ada lapisan slag beku di depannya (diasumsikan k ${ksl}, beku di ${tfr} °C). Brick dianggap utuh ${(L0*1000).toFixed(0)} mm (batas atas); kombinasi lain ada di tabel bawah.`;
  else tx+=`<br>Brick + frozen slag (satu lapisan, k(T)) = ${(L1*1000).toFixed(0)} mm ≤ brick awal ${(L0*1000).toFixed(0)} mm. Frozen slag tidak terdeteksi dari flux ini.`;
@@ -274,9 +304,14 @@ g$('tp').onchange=()=>{g$('np').value=g$('tp').value==='V'?3:2;fillIds();totalFl
 ['xs','hs','hst','tb','wx'].forEach(i=>g$(i).oninput=build);g$('vw').onchange=()=>{build();camSet()};g$('sm').onchange=()=>{build();camSet()};
 g$('np').oninput=g$('fl').oninput=totalFlow;g$('tm').oninput=upd;
 ['sp','sk','sch','ar','rs','l0','lm','dfe','we','tf','hz'].forEach(i=>g$(i).onchange=()=>{runSim();upd()});
-g$('pm').onclick=()=>{pan=!pan;ctl.mouseButtons.LEFT=pan?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;ctl.touches={ONE:pan?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};g$('pm').textContent='Mode kiri: '+(pan?'Geser':'Putar')};
+g$('pm').onclick=()=>{pan=!pan;ctl.mouseButtons.LEFT=pan?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;ctl.touches={ONE:pan?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};g$('pm').textContent=pan?'Mode: Geser':'Mode: Putar'};
 g$('rc').onclick=camSet;
 g$('pl').onclick=()=>{if(playT){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar';return}if(!sim)return;if(+g$('tm').value>=sim.N)g$('tm').value=0;g$('pl').textContent='⏸ Jeda';
  playT=setInterval(()=>{const v=+g$('tm').value+1;if(v>sim.N){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar';return}g$('tm').value=v;upd()},120)};
-g$('tp').value='Y';g$('vw').value='w';fillIds();totalFlow();init();g$('go').click();
+const mark=()=>{document.querySelectorAll('[data-vw]').forEach(b=>b.classList.toggle('on',b.dataset.vw===g$('vw').value));g$('chs').style.display=g$('vw').value==='f'?'flex':'none';g$('sm').style.display=g$('vw').value==='s'?'':'none';g$('xs').parentElement.style.display=g$('vw').value==='s'?'none':'flex'};
+document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{g$('vw').value=b.dataset.vw;mark();if(cur){build();camSet()}});
+document.querySelectorAll('[data-src]').forEach(b=>b.onclick=()=>{g$('src').value=b.dataset.src;document.querySelectorAll('[data-src]').forEach(x=>x.classList.toggle('on',x===b));g$('rowq').style.display=b.dataset.src==='q'?'flex':'none'});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab))});
+g$('sm').style.cssText='';g$('sm').onchange=()=>{build();camSet()};
+g$('tp').value='Y';g$('vw').value='w';mark();fillIds();totalFlow();init();g$('go').click();
 </script></body></html>
