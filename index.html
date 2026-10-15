@@ -89,7 +89,7 @@ canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
 <label class="chip"><input type="checkbox" id="tb" checked>Brick tembus pandang</label>
 <label class="chip">Tebal ×<input type="range" id="xs" min="1" max="8" value="4" style="width:70px"></label>
 <button type="button" class="chip btn" id="pm">Putar</button><button type="button" class="chip btn" id="rc">Reset kamera</button></div>
-<div id="v"><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
+<div id="v"><canvas id="lbl" style="position:absolute;inset:0;pointer-events:none"></canvas><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
 <div class="timeline"><button type="button" id="pl">▶ Putar</button><button type="button" id="rec">⏺ Rekam</button><input type="range" id="tm" min="0" max="240" value="0"><span class="mu">waktu simulasi</span></div>
 <div id="recbox" class="card" style="display:none;margin-bottom:10px"><video id="rv" controls playsinline style="width:100%;border-radius:10px;background:#000"></video><div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><button type="button" id="rsave" class="chip btn">Simpan video</button><span class="mu">Video memuat keterangan sisa brick, erosi, dan ΔT air pada tiap waktu.</span></div></div>
 <div id="ss"></div><div id="sx" class="mu"></div>
@@ -170,9 +170,9 @@ function init(){const el=g$('v');sc=new THREE.Scene();
  addEventListener('resize',()=>{cam.aspect=el.clientWidth/el.clientHeight;cam.updateProjectionMatrix();ren.setSize(el.clientWidth,el.clientHeight)});
  (function loop(t){requestAnimationFrame(loop);if(slagMat)slagMat.color.setHSL(.1,1,.5+.05*Math.sin(t/500));
   if(wave){const ps=wave.geometry.attributes.position;for(let i=0;i<ps.count;i++)ps.setZ(i,.04*Math.sin(ps.getX(i)*.45+t/350)*Math.cos(ps.getY(i)*.7+t/450));ps.needsUpdate=true}
-  ctl.update();ren.render(sc,cam);if(recOn)drawRec()})(0)}
+  ctl.update();ren.render(sc,cam);{const lc=g$('lbl'),cw=ren.domElement.width,ch=ren.domElement.height;if(lc.width!==cw||lc.height!==ch){lc.width=cw;lc.height=ch;lc.style.width='100%';lc.style.height='100%'}const lx=lc.getContext('2d');lx.clearRect(0,0,cw,ch);drawLabels(lx,cw,ch,6)}if(recOn)drawRec()})(0)}
 function camSet(){if(g$('vw').value==='w'){cam.position.set(0,2.6,11);ctl.target.set(1,2.6,0)}else if(g$('vw').value==='f'){cam.position.set(-24,17,36);ctl.target.set(0,2,0)}else{const n=g$('sm').value==='all'?3:1,d=Math.max(2.3,secH*1.8)*n;cam.position.set(-.9*n,secH/2+.2,d);ctl.target.set(-.25,secH/2,0)}ctl.update()}
-function reset(){if(holder){holder.traverse(o=>{if(o.geometry)o.geometry.dispose()});sc.remove(holder)}holder=new THREE.Group();sc.add(holder);slagMat=null;wave=null}
+function reset(){if(holder){holder.traverse(o=>{if(o.geometry)o.geometry.dispose()});sc.remove(holder)}holder=new THREE.Group();sc.add(holder);slagMat=null;wave=null;labels=[]}
 const col=(t,a,b)=>new THREE.Color().setHSL((1-Math.min(1,Math.max(0,(t-a)/(b-a||1))))*.66,.9,.5);
 const jet=(t,a,b)=>col(Math.round(Math.min(1,Math.max(0,(t-a)/(b-a)))*16)/16*(b-a)+a,a,b);
 function build(){if(!cur)return;reset();const v=g$('vw').value;v==='f'?furnace():v==='w'?wallProfile():section()}
@@ -188,8 +188,14 @@ function section(){const p=cur.p,L=cur.L,m=g$('sm').value,ty=m==='t'?[p.ty]:m===
   grp.add(mesh,new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0})));secH=Math.max(secH,hr*DS);grp.rotation.z=th;grp.position.x=(i-(ty.length-1)/2)*.8;holder.add(grp);
   info+=`<br>Cooler ${t}: ${(r.q/1000).toFixed(1)} kW/m² = ${(r.q*BT).toFixed(0)} Btu/h·ft² (puncak lokal ${(r.pk/1000).toFixed(0)} kW/m²)`});
  g$('sx').innerHTML=info+'<br>Urutan kiri → kanan sesuai daftar di atas; sisi kanan tiap penampang = hot face (molten/brick), kiri = steel shell.';}
-function lbl(t,x,y,sc,color){const c=document.createElement('canvas');c.width=640;c.height=96;const g=c.getContext('2d');g.font='bold 36px sans-serif';g.fillStyle='rgba(0,0,0,.6)';g.fillRect(0,0,640,96);g.fillStyle=color||'#fff';g.textBaseline='middle';g.fillText(t,10,48);
- const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));sp.scale.set(sc*6.67,sc,1);sp.position.set(x,y,.5);holder.add(sp)}
+let labels=[];
+function lbl(t,x,y,sc,color){labels.push({t,x,y,c:color||'#fff'})}
+function drawLabels(x,w,h,top){if(!labels.length)return;const f=Math.max(11,w/72),pad=f*.45,bh=f*1.55;x.font='600 '+f+'px system-ui,sans-serif';
+ const it=labels.map(l=>{const v=new THREE.Vector3(l.x,l.y,.3).project(cam);return{l,ax:(v.x*.5+.5)*w,ay:(-v.y*.5+.5)*h,tw:x.measureText(l.t).width+pad*2,left:l.x<-.3}});
+ for(const side of[true,false]){const col=it.filter(i=>i.left===side).sort((a,b)=>a.ay-b.ay);let prev=(side?top:6)-bh-3;
+  col.forEach(i=>{i.by=Math.max(i.ay-bh/2,prev+bh+3);prev=i.by});let lim=h-8;for(let k=col.length-1;k>=0;k--){col[k].by=Math.min(col[k].by,lim-bh);lim=col[k].by-3}
+  col.forEach(i=>{const bx=side?f*.6:w-i.tw-f*.6,ex=side?bx+i.tw:bx;x.globalAlpha=.7;x.strokeStyle=i.l.c;x.lineWidth=1;x.beginPath();x.moveTo(i.ax,i.ay);x.lineTo(ex,i.by+bh/2);x.stroke();x.fillStyle=i.l.c;x.beginPath();x.arc(i.ax,i.ay,2.6,0,6.3);x.fill();x.globalAlpha=1;
+   x.fillStyle='rgba(10,12,16,.8)';x.fillRect(bx,i.by,i.tw,bh);x.fillStyle=i.l.c;x.fillText(i.l.t,bx+pad,i.by+bh*.7)})}}
 function wallProfile(){const p=cur.p,L=cur.L,k=Math.min(+g$('tm').value,sim?sim.N:0),wr=sim?sim.wear[k]:Array(NBd).fill(0),yt=1.4+(sim?sim.lev[k]:+g$('l0').value),yF=1.4-$('dfe'),sx=$('xs')*1.5,Hy=p.hy,hmin=Math.min(0,.62-Hy),NB=44,NS=8,bh=(5.4-hmin)/NB,Wz=.5,bw=5.4/NBd;
  const Tw=(p.Ti+p.To)/2,Rr=p.tc/itp(TB.CU,100)+p.Rc+1/8000,ks=itp(TB.ST,200);
  g$('tmin').textContent=p.Ta+' °C';g$('tmax').textContent=cur.Th0+' °C (hot face)';
@@ -209,11 +215,11 @@ function wallProfile(){const p=cur.p,L=cur.L,k=Math.min(+g$('tm').value,sim?sim.
  ln([[0,hmin],[-L*sx,hmin],[-L*sx,5.4],[0,5.4],[0,hmin]],0xffffff);
  const Z=[['Y',.62-Hy,.62],['V',.62,2.15],['E',2.15,2.7]];
  Z.forEach(z=>{const e=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(p.tc*sx,z[2]-z[1],Wz+.02)),new THREE.LineBasicMaterial({color:0xffa94d}));e.position.set(-(L+p.tc/2)*sx,(z[1]+z[2])/2,0);holder.add(e)});
- const xl=-(L+p.tc+p.ts)*sx-2.2,Lm=L-wr[mi],hm=(mi+.5)*5.4/NBd;
- Z.forEach(z=>lbl('Cooler '+z[0]+' ('+((z[2]-z[1])*1000).toFixed(0)+' mm)',xl,(z[1]+z[2])/2,.3));
- lbl('Slag, level '+yt.toFixed(2)+' m',2.4,yt+.1,.3,'#ffd24a');lbl('Lubang slag 1,40 m',2.4,1.4,.3,'#9fe870');lbl('FeNi sampai '+yF.toFixed(2)+' m',2.4,yF-.15,.3,'#ff8a5c');lbl('Tap hole FeNi 0,60 m',2.4,.6,.3,'#ff8a5c');
- lbl('Tidal: sisa '+(Lm*1000).toFixed(0)+' mm, -'+((wr[mi])*1000).toFixed(1)+' mm ('+(wr[mi]/L*100).toFixed(1)+'%)',5.2,hm,.3,'#ff7aa8');
- lbl('Garis putih = brick awal '+(L*1000).toFixed(0)+' mm',-1.5,5.75,.3);
+ const xc=-(L+p.tc/2)*sx,Lm=L-wr[mi],hm=(mi+.5)*5.4/NBd;
+ Z.forEach(z=>lbl('Cooler '+z[0]+' ('+((z[2]-z[1])*1000).toFixed(0)+' mm)',xc,(z[1]+z[2])/2,.3,'#ffb066'));
+ lbl('Slag, level '+yt.toFixed(2)+' m',.9,yt,.3,'#ffd24a');lbl('Lubang slag 1,40 m',.9,1.4,.3,'#9fe870');lbl('FeNi sampai '+yF.toFixed(2)+' m',.9,yF,.3,'#ff8a5c');lbl('Tap hole FeNi 0,60 m',.9,.6,.3,'#ff8a5c');
+ lbl('Tidal: sisa '+(Lm*1000).toFixed(0)+' dari '+(L*1000).toFixed(0)+' mm (−'+(wr[mi]*1000).toFixed(1)+' mm, −'+(wr[mi]/L*100).toFixed(1)+'%)',0,hm,.3,'#ff7aa8');
+ lbl('Brick awal '+(L*1000).toFixed(0)+' mm (garis putih)',-L*sx,5.4,.3,'#ffffff');
  g$('sx').innerHTML='Irisan vertikal dinding (tinggi dihitung dari tengah hearth; molten di kanan, steel shell di kiri; ketebalan diperbesar ×'+sx.toFixed(1)+'). <b>Warna brick = temperatur</b> (hot face 1550 °C di bawah level slag, 950 °C gas di atasnya); <b style="color:#ff3b8a">merah muda = brick terkikis</b>; garis putih = ketebalan awal; kotak oranye = cooler Y/V/E sesuai tinggi aslinya; di atas cooler E dinding tanpa cooler.';
  }
 function furnace(){const p=cur.p,L=cur.L,xs=$('xs')*.6,th=10*Math.PI/180,tn=Math.tan(th),Hh=5.4/Math.cos(th),a0=15.58,b0=4.85,k=Math.min(+g$('tm').value,sim?sim.lev.length-1:0),wr=sim?sim.wear[k]:Array(NBd).fill(0),lev=sim?sim.lev[k]:+g$('l0').value,wx=$('wx'),yt=1.4+lev;
@@ -260,9 +266,9 @@ function dtAt(k){const p=cur.p,L=cur.L,wr=sim.wear[k],yt=1.4+sim.lev[k],Tw=(p.Ti
  for(let i=0;i<NBd;i++){const h=(i+.5)*5.4/NBd;if(h<rg[0]||h>rg[1])continue;t+=band(p,L-wr[i],h<yt?p.Th:950,true,Tw,Rr,1).q;n++}return n?t/n:1}
 function upd(){if(!sim||!cur)return;const k=Math.min(+g$('tm').value,sim.N),wr=sim.wear[k],L=cur.L,p=cur.p;let mi=0;wr.forEach((w,i)=>{if(w>wr[mi])mi=i});
  const Lm=L-wr[mi],Tw=(p.Ti+p.To)/2,q=(p.Th-Tw)/(Lm/kbf(p,.6*p.Th)+p.tc/itp(TB.CU,100)+p.Rc+1/8000);
- const q0=dtAt(0),dT0=p.To-p.Ti,dTk=dT0*dtAt(k)/q0;lastInfo={ty:p.ty,t:k*sim.dt,T:sim.N*sim.dt,y:1.4+sim.lev[k],skim:sim.skim[k],Lm:Lm*1000,dec:wr[mi]*1000,pct:wr[mi]/L*100,h:(mi+.5)*5.4/NBd,dT:dTk,dT0};
+ const q0=dtAt(0),dT0=p.To-p.Ti,dTk=dT0*dtAt(k)/q0;lastInfo={ty:p.ty,t:k*sim.dt,T:sim.N*sim.dt,y:1.4+sim.lev[k],skim:sim.skim[k],Lm:Lm*1000,dec:wr[mi]*1000,pct:wr[mi]/L*100,h:(mi+.5)*5.4/NBd,dT:dTk,dT0,Lin:L*1000,fk:cur.qm*dtAt(k)/q0,fl:q};
  g$('kmin').textContent=(Lm*1000).toFixed(0)+' mm';g$('kmh').textContent='pada '+((mi+.5)*5.4/NBd).toFixed(1)+' m, terkikis '+(wr[mi]*1000).toFixed(1)+' mm ('+(wr[mi]/L*100).toFixed(1)+'%)';
- g$('ss').innerHTML=`<b>Jam ke-${(k*sim.dt).toFixed(1)}</b> · level slag ${(1.4+sim.lev[k]).toFixed(2)} m (${sim.skim[k]?'SEDANG SKIMMING':'tidak skimming'}) · brick tersisa minimum <b>${(Lm*1000).toFixed(0)} mm</b> pada ketinggian ${((mi+.5)*5.4/NBd).toFixed(1)} m (awal ${(L*1000).toFixed(0)} mm) · estimasi flux 1D di titik itu ≈ ${(q/1000).toFixed(1)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft² · <b>ΔT air ≈ ${dTk.toFixed(2)} °C</b> (awal ${dT0.toFixed(2)}, ${dTk>=dT0?'+':''}${(dTk-dT0).toFixed(2)})`;
+ g$('ss').innerHTML=`<b>Jam ke-${(k*sim.dt).toFixed(1)}</b> · level slag ${(1.4+sim.lev[k]).toFixed(2)} m (${sim.skim[k]?'SEDANG SKIMMING':'tidak skimming'}) · brick tersisa minimum <b>${(Lm*1000).toFixed(0)} mm</b> pada ketinggian ${((mi+.5)*5.4/NBd).toFixed(1)} m (awal ${(L*1000).toFixed(0)} mm) · estimasi flux 1D di titik itu ≈ ${(q/1000).toFixed(1)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft² · flux rata-rata cooler ${(lastInfo.fk/1000).toFixed(1)} kW/m² (${(lastInfo.fk*BT).toFixed(0)} Btu/h·ft²) · <b>ΔT air ≈ ${dTk.toFixed(2)} °C</b> (awal ${dT0.toFixed(2)}, ${dTk>=dT0?'+':''}${(dTk-dT0).toFixed(2)})`;
  const c=g$('ch'),x=c.getContext('2d'),W=c.width,H=c.height,tx=t=>40+t/(sim.N*sim.dt)*(W-60),ly=l=>H-25-l/1.6*(H-40),st=getComputedStyle(document.documentElement);
  x.clearRect(0,0,W,H);x.fillStyle='rgba(255,180,50,.25)';sim.win.forEach(w=>x.fillRect(tx(w[0]),5,tx(w[1])-tx(w[0]),H-30));
  x.strokeStyle=st.getPropertyValue('--ac').trim();x.lineWidth=2;x.beginPath();sim.lev.forEach((l,i)=>i?x.lineTo(tx(i*sim.dt),ly(l)):x.moveTo(tx(0),ly(l)));x.stroke();x.setLineDash([5,4]);x.strokeStyle=st.getPropertyValue('--mu').trim();x.beginPath();x.moveTo(40,ly($('lm')));x.lineTo(W-20,ly($('lm')));x.stroke();x.setLineDash([]);
@@ -288,7 +294,7 @@ function run(){const p=P(),qm=g$('src').value==='q',rho_=rho*cp/3600;let dT=p.To
  const L0=$('L0'),ksl=$('ksl'),tfr=$('tfr'),Tw0=(p.Ti+p.To)/2,Rr0=p.tc/itp(TB.CU,100)+p.Rc+1/8000;
  const ev=qq=>{const Tc=Tw0+qq*Rr0,Ls=kirch(p,Tc,p.Th)/qq;let Ti=p.Th,sl=0;if(Ls>L0){Ti=Tof(p,Tc,qq*L0);sl=Math.max(0,ksl*(tfr-Ti)/qq)}return{Ls,Ti,sl}};
  let L=L1,pp=p,e=ev(q);const two=L1>L0;if(two){L=L0;pp={...p,Th:e.Ti}}
- lastT=null;const r=sol(pp,L);cur={p:pp,r,L,s:two?e.sl:0,Tfr:tfr,Th0:p.Th};const BH=3412.14;
+ lastT=null;const r=sol(pp,L);cur={p:pp,r,L,s:two?e.sl:0,Tfr:tfr,Th0:p.Th,qm:q};const BH=3412.14;
  el.textContent=(L*1000).toFixed(0)+' mm';g$('rS').textContent=two?`brick utuh (batas atas) + ±${(e.sl*1000).toFixed(0)} mm frozen slag`:`${(L/.0254).toFixed(1)} in · tanpa indikasi frozen slag`;g$('kq').textContent=(q/1000).toFixed(1)+' kW/m²';g$('kb').textContent=(q*BT).toFixed(0)+' Btu/h·ft²';g$('ks').textContent=two?'Frozen slag terindikasi':'Brick saja';g$('ks2').textContent=two?'1 lapisan akan '+(L1*1000).toFixed(0)+' mm > brick awal':'Konsisten dengan brick awal';
  let tx=`<b>Heat flux = ${(q/1000).toFixed(2)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft²</b><br>Q air = ${(Q/1000).toFixed(1)} kW = ${(Q*BH).toExponential(3)} Btu/h`;
  if(two)tx+=`<br><b>Satu lapisan brick saja akan ${(L1*1000).toFixed(0)} mm &gt; brick awal ${(L0*1000).toFixed(0)} mm → tidak mungkin.</b> Artinya flux terlalu rendah untuk brick bersuhu ${p.Th} °C di permukaan: permukaan brick hanya ±${e.Ti.toFixed(0)} °C, jadi ada lapisan slag beku di depannya (diasumsikan k ${ksl}, beku di ${tfr} °C). Brick dianggap utuh ${(L0*1000).toFixed(0)} mm (batas atas); kombinasi lain ada di tabel bawah.`;
@@ -314,10 +320,11 @@ function playSim(onEnd){if(playT)clearInterval(playT);g$('pl').textContent='⏸ 
 g$('pl').onclick=()=>{if(playT){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar';return}if(!sim)return;if(+g$('tm').value>=sim.N)g$('tm').value=0;playSim()};
 function drawRec(){const c=ren.domElement;if(recCv.width!==c.width||recCv.height!==c.height){recCv.width=c.width;recCv.height=c.height}
  const w=recCv.width,h=recCv.height,f=Math.max(11,w/62),x=recCtx,I=lastInfo;x.drawImage(c,0,0);if(!I)return;
- const ln=['Simulasi furnace – cooler '+I.ty,'Jam ke-'+I.t.toFixed(1)+' · level slag '+I.y.toFixed(2)+' m'+(I.skim?' · SKIMMING':''),'Sisa brick minimum: '+I.Lm.toFixed(0)+' mm (−'+I.dec.toFixed(1)+' mm, −'+I.pct.toFixed(1)+'%) di '+I.h.toFixed(1)+' m','ΔT air: '+I.dT.toFixed(2)+' °C (awal '+I.dT0.toFixed(2)+', '+(I.dT>=I.dT0?'+':'')+(I.dT-I.dT0).toFixed(2)+')'];
+ const ln=['Simulasi furnace – cooler '+I.ty,'Jam ke-'+I.t.toFixed(1)+' · level slag '+I.y.toFixed(2)+' m'+(I.skim?' · SKIMMING':''),'Sisa brick minimum: '+I.Lm.toFixed(0)+' dari '+I.Lin.toFixed(0)+' mm (−'+I.dec.toFixed(1)+' mm, −'+I.pct.toFixed(1)+'%) di '+I.h.toFixed(1)+' m','Heat flux cooler: '+(I.fk/1000).toFixed(1)+' kW/m² ('+(I.fk*BT).toFixed(0)+' Btu/h·ft²)','Flux lokal titik tipis: '+(I.fl/1000).toFixed(1)+' kW/m² ('+(I.fl*BT).toFixed(0)+' Btu/h·ft²)','ΔT air: '+I.dT.toFixed(2)+' °C (awal '+I.dT0.toFixed(2)+', '+(I.dT>=I.dT0?'+':'')+(I.dT-I.dT0).toFixed(2)+')'];
  x.font='600 '+f+'px system-ui,sans-serif';const pw=Math.max(...ln.map(l=>x.measureText(l).width))+f*1.8,ph=ln.length*f*1.5+f*.6;
- x.fillStyle='rgba(10,12,16,.74)';x.fillRect(f*.6,f*.6,pw,ph);
- ln.forEach((l,i)=>{x.font=(i===0?'700 ':'500 ')+f+'px system-ui,sans-serif';x.fillStyle=['#fff','#fff','#ff9fbf','#ffc47a'][i];x.fillText(l,f*1.4,f*.6+f*1.5*(i+1))});
+ x.fillStyle='rgba(10,12,16,.78)';x.fillRect(f*.6,f*.6,pw,ph);
+ ln.forEach((l,i)=>{x.font=(i===0?'700 ':'500 ')+f+'px system-ui,sans-serif';x.fillStyle=['#fff','#fff','#ff9fbf','#8ee0ff','#8ee0ff','#ffc47a'][i];x.fillText(l,f*1.4,f*.6+f*1.5*(i+1))});
+ drawLabels(x,w,h,ph+f*1.4);
  x.fillStyle='rgba(255,255,255,.25)';x.fillRect(0,h-6,w,6);x.fillStyle='#ff8a4c';x.fillRect(0,h-6,w*Math.min(1,I.t/I.T),6)}
 function stopRec(){if(mr&&mr.state!=='inactive')mr.stop();recOn=false;g$('rec').textContent='⏺ Rekam';if(playT){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar'}}
 g$('rec').onclick=()=>{if(recOn){stopRec();return}if(!cur||!sim){alert('Tekan Hitung dulu.');return}
