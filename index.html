@@ -91,7 +91,7 @@ canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
 <button type="button" class="chip btn" id="pm">Putar</button><button type="button" class="chip btn" id="rc">Reset kamera</button></div>
 <div id="v"><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
 <div class="timeline"><button type="button" id="pl">▶ Putar</button><button type="button" id="rec">⏺ Rekam</button><input type="range" id="tm" min="0" max="240" value="0"><span class="mu">waktu simulasi</span></div>
-<div id="recbox" class="card" style="display:none;margin-bottom:10px"><video id="rv" controls playsinline style="width:100%;border-radius:10px;background:#000"></video><div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><button type="button" id="rsave" class="chip btn">Simpan video (.webm)</button><span class="mu">Video memuat keterangan sisa brick, erosi, dan ΔT air pada tiap waktu.</span></div></div>
+<div id="recbox" class="card" style="display:none;margin-bottom:10px"><video id="rv" controls playsinline style="width:100%;border-radius:10px;background:#000"></video><div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><button type="button" id="rsave" class="chip btn">Simpan video</button><span class="mu">Video memuat keterangan sisa brick, erosi, dan ΔT air pada tiap waktu.</span></div></div>
 <div id="ss"></div><div id="sx" class="mu"></div>
 <div class="tabs"><button data-tab="p1" class="on">Detail hasil</button><button data-tab="p2">Frozen slag &amp; ketidakpastian</button><button data-tab="p3">Simulasi slag &amp; erosi</button><button data-tab="p4">Data k(T)</button></div>
 <div class="panel on" id="p1"><div id="rD"></div><div id="cmp" class="mu" style="margin-top:6px"></div></div>
@@ -161,7 +161,7 @@ function sol(p,L){HR=Math.max(8,Math.round((p.ty==='E'?.55:p.ty==='V'?1.53:p.hy)
  lastT=T;return{M,T,nC,L,dxc,HR,q:Q/(HR*DS),pk}}
 function inverse(p,q){const lo=p.ty==='V'?.06:p.ty==='E'?.13:.15,qa=sol(p,lo).q;if(qa<q)return null;const hb=.6,qb=sol(p,hb).q;if(qb>q)return hb;
  let x0=lo,f0=1/qa-1/q,x1=hb,f1=1/qb-1/q;for(let i=0;i<7&&Math.abs(f1)*q>.006;i++){let x2=x1-f1*(x1-x0)/(f1-f0);x2=Math.min(.9,Math.max(lo,x2));x0=x1;f0=f1;x1=x2;f1=1/sol(p,x1).q-1/q}return x1}
-let recOn=false,recCv,recCtx,mr,chunks=[],recBlob=null,lastInfo=null,secH=1.2,sc,cam,ren,ctl,holder,cur,slagMat,wave,sim=null,playT=null,pan=false;const NBd=20,BT=.316998;
+let recExt='webm',recType='video/webm',recOn=false,recCv,recCtx,mr,chunks=[],recBlob=null,lastInfo=null,secH=1.2,sc,cam,ren,ctl,holder,cur,slagMat,wave,sim=null,playT=null,pan=false;const NBd=20,BT=.316998;
 function init(){const el=g$('v');sc=new THREE.Scene();
  cam=new THREE.PerspectiveCamera(40,el.clientWidth/el.clientHeight,.05,400);
  ren=new THREE.WebGLRenderer({antialias:true,alpha:true});ren.setSize(el.clientWidth,el.clientHeight);el.appendChild(ren.domElement);
@@ -324,13 +324,15 @@ g$('rec').onclick=()=>{if(recOn){stopRec();return}if(!cur||!sim){alert('Tekan Hi
  const cv=ren.domElement;if(typeof MediaRecorder==='undefined'||!HTMLCanvasElement.prototype.captureStream){alert('Browser ini tidak mendukung perekaman. Coba Chrome atau Edge di komputer.');return}
  if(playT){clearInterval(playT);playT=null}g$('tm').value=0;upd();
  recCv=document.createElement('canvas');recCv.width=cv.width;recCv.height=cv.height;recCtx=recCv.getContext('2d');
- const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+ const mime=['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));recType=(mime||'video/webm').split(';')[0];recExt=recType==='video/mp4'?'mp4':'webm';
  try{mr=new MediaRecorder(recCv.captureStream(30),mime?{mimeType:mime,videoBitsPerSecond:4e6}:{videoBitsPerSecond:4e6})}catch(e){alert('Perekaman gagal dimulai: '+e.message);return}
  chunks=[];mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
- mr.onstop=()=>{recOn=false;recBlob=new Blob(chunks,{type:'video/webm'});const v=g$('rv');if(v.dataset.u)URL.revokeObjectURL(v.dataset.u);v.dataset.u=URL.createObjectURL(recBlob);v.src=v.dataset.u;g$('recbox').style.display='block';g$('recbox').scrollIntoView({behavior:'smooth',block:'nearest'});g$('rec').textContent='⏺ Rekam'};
+ mr.onstop=()=>{recOn=false;recBlob=new Blob(chunks,{type:recType});g$('rsave').textContent='Simpan video (.'+recExt+')';const v=g$('rv');if(v.dataset.u)URL.revokeObjectURL(v.dataset.u);v.dataset.u=URL.createObjectURL(recBlob);v.src=v.dataset.u;g$('recbox').style.display='block';g$('recbox').scrollIntoView({behavior:'smooth',block:'nearest'});g$('rec').textContent='⏺ Rekam'};
  recOn=true;mr.start(500);g$('rec').textContent='⏹ Hentikan & simpan rekaman';playSim(stopRec)};
-g$('rsave').onclick=async()=>{if(!recBlob)return;const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(!dl){alert('Penyimpanan langsung tidak tersedia di tampilan ini. Gunakan menu ⋮ pada pemutar video untuk mengunduh.');return}
- try{await dl.save({filename:'simulasi_furnace_'+(lastInfo?lastInfo.ty:'')+'.webm',data:recBlob})}catch(e){if(!e||e.code!=='declined')alert('Gagal menyimpan: '+((e&&(e.message||e.code))||''))}};const mark=()=>{document.querySelectorAll('[data-vw]').forEach(b=>b.classList.toggle('on',b.dataset.vw===g$('vw').value));g$('chs').style.display=g$('vw').value==='f'?'flex':'none';g$('sm').style.display=g$('vw').value==='s'?'':'none';g$('xs').parentElement.style.display=g$('vw').value==='s'?'none':'flex'};
+g$('rsave').onclick=async()=>{if(!recBlob)return;const name='simulasi_furnace_'+(lastInfo?lastInfo.ty:'')+'.'+recExt;let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){}
+ if(dl){try{await dl.save({filename:name,data:recBlob})}catch(e){if(!e||e.code!=='declined')alert('Gagal menyimpan: '+((e&&(e.message||e.code))||''))}return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(recBlob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),1500)};
+const mark=()=>{document.querySelectorAll('[data-vw]').forEach(b=>b.classList.toggle('on',b.dataset.vw===g$('vw').value));g$('chs').style.display=g$('vw').value==='f'?'flex':'none';g$('sm').style.display=g$('vw').value==='s'?'':'none';g$('xs').parentElement.style.display=g$('vw').value==='s'?'none':'flex'};
 document.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{g$('vw').value=b.dataset.vw;mark();if(cur){build();camSet()}});
 document.querySelectorAll('[data-src]').forEach(b=>b.onclick=()=>{g$('src').value=b.dataset.src;document.querySelectorAll('[data-src]').forEach(x=>x.classList.toggle('on',x===b));g$('rowq').style.display=b.dataset.src==='q'?'flex':'none'});
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab))});
