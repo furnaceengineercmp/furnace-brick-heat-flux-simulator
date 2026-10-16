@@ -72,6 +72,16 @@ canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
 <label class="r"><span>Tahanan kontak (m²K/W)</span><input type="number" id="Rc" value="0.0005" step="0.0001"></label>
 <label class="r"><span>h udara (W/m²K)</span><input type="number" id="ha" value="12"></label>
 <label class="r"><span>T udara (°C)</span><input type="number" id="Ta" value="30"></label></details>
+<div class="card"><h2>④ Skenario simulasi</h2>
+<label class="r"><span>Durasi simulasi (jam)</span><input type="number" id="hz" value="24"></label>
+<label class="r"><span>Mode level slag</span><select id="lmode"><option value="dyn">Dinamis (produksi &amp; skimming)</option><option value="fix">Tetap (pakem)</option></select></label>
+<label class="r"><span>Level slag (m dari lubang slag)</span><input type="number" id="l0" value="0.7" step="0.05"></label>
+<label class="r"><span>Batas alarm level (m dari lubang slag)</span><input type="number" id="al" value="1.2" step="0.05"></label>
+<label class="r"><span>Produksi slag (t/jam)</span><input type="number" id="sp" value="90"></label>
+<label class="r"><span>Laju skimming (t/jam)</span><input type="number" id="sk" value="170"></label>
+<label class="r"><span>Jumlah skimming</span><input type="number" id="nsk" value="6" min="0" max="24"></label>
+<div id="skrows"></div><input type="hidden" id="sch" value="">
+<div class="hint">Level dibaca langsung dalam m dari lubang slag (0 = setinggi lubang). Mode Tetap menahan level di nilai itu sepanjang simulasi. Alarm muncul bila level melewati batas.</div></div>
 <button class="go" id="go">Hitung &amp; Tampilkan 3D</button>
 </aside>
 <section class="main">
@@ -89,7 +99,7 @@ canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
 <label class="chip"><input type="checkbox" id="tb" checked>Brick tembus pandang</label>
 <label class="chip">Tebal ×<input type="range" id="xs" min="1" max="8" value="4" style="width:70px"></label>
 <button type="button" class="chip btn" id="pm">Putar</button><button type="button" class="chip btn" id="rc">Reset kamera</button></div>
-<div id="v"><canvas id="lbl" style="position:absolute;inset:0;pointer-events:none"></canvas><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
+<div id="v"><div id="alarm" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#c92a2a;color:#fff;padding:5px 14px;border-radius:20px;font-weight:700;font-size:13px;z-index:2;white-space:nowrap"></div><canvas id="lbl" style="position:absolute;inset:0;pointer-events:none"></canvas><div id="st">seret = putar · scroll = zoom · klik kanan = geser</div><div class="legend"><div class="l"><span id="tmin"></span><span id="tmax"></span></div><div id="lg"></div></div></div>
 <div class="timeline"><button type="button" id="pl">▶ Putar</button><button type="button" id="rec">⏺ Rekam</button><input type="range" id="tm" min="0" max="240" value="0"><span class="mu">waktu simulasi</span></div>
 <div id="recbox" class="card" style="display:none;margin-bottom:10px"><video id="rv" controls playsinline style="width:100%;border-radius:10px;background:#000"></video><div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><button type="button" id="rsave" class="chip btn">Simpan video</button><span class="mu">Video memuat keterangan sisa brick, erosi, dan ΔT air pada tiap waktu.</span></div></div>
 <div id="ss"></div><div id="sx" class="mu"></div>
@@ -97,16 +107,11 @@ canvas.c{width:100%;display:block}.mu{color:var(--mu);font-size:12px}
 <div class="panel on" id="p1"><div id="rD"></div><div id="cmp" class="mu" style="margin-top:6px"></div></div>
 <div class="panel" id="p2"><div id="fam"></div></div>
 <div class="panel" id="p3"><div class="two">
-<div><label class="r"><span>Produksi slag (t/jam)</span><input type="number" id="sp" value="90"></label>
-<label class="r"><span>Laju skimming (t/jam)</span><input type="number" id="sk" value="170"></label>
-<label class="r"><span>Jadwal skimming (jam)</span><input type="text" id="sch" value="2-4, 6-8, 10-12, 14-16, 18-20, 22-24" style="width:170px"></label>
-<label class="r"><span>Durasi (jam)</span><input type="number" id="hz" value="24"></label>
-<label class="r"><span>Luas zona slag (m²)</span><input type="number" id="ar" value="329.84"></label>
-<label class="r"><span>Densitas slag (t/m³)</span><input type="number" id="rs" value="2.87" step="0.01"></label></div>
-<div><label class="r"><span>Level awal di atas lubang slag (m)</span><input type="number" id="l0" value="0.7" step="0.05"></label>
-<label class="r"><span>Level minimum (m)</span><input type="number" id="lm" value="0.7" step="0.05"></label>
-<label class="r"><span>Batas FeNi ke lubang slag (m)</span><input type="number" id="dfe" value="0.55" step="0.05"></label>
-<label class="r"><span>Laju erosi dasar (mm/jam)</span><input type="number" id="we" value="0.25" step="0.01"></label>
+<div><label class="r"><span>Luas zona slag (m²)</span><input type="number" id="ar" value="329.84"></label>
+<label class="r"><span>Densitas slag (t/m³)</span><input type="number" id="rs" value="2.87" step="0.01"></label>
+<label class="r"><span>Level minimum skimming (m dari lubang slag)</span><input type="number" id="lm" value="0.7" step="0.05"></label>
+<label class="r"><span>Batas FeNi ke lubang slag (m)</span><input type="number" id="dfe" value="0.55" step="0.05"></label></div>
+<div><label class="r"><span>Laju erosi dasar (mm/jam)</span><input type="number" id="we" value="0.25" step="0.01"></label>
 <label class="r"><span>Faktor di garis slag (×)</span><input type="number" id="tf" value="5"></label>
 <label class="r"><span>Pembesaran visual erosi (×)</span><input type="number" id="wx" value="5"></label></div></div>
 <canvas id="ch" class="c" width="900" height="150" style="height:150px"></canvas>
@@ -217,7 +222,7 @@ function wallProfile(){const p=cur.p,L=cur.L,k=Math.min(+g$('tm').value,sim?sim.
  Z.forEach(z=>{const e=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(p.tc*sx,z[2]-z[1],Wz+.02)),new THREE.LineBasicMaterial({color:0xffa94d}));e.position.set(-(L+p.tc/2)*sx,(z[1]+z[2])/2,0);holder.add(e)});
  const xc=-(L+p.tc/2)*sx,Lm=L-wr[mi],hm=(mi+.5)*5.4/NBd;
  Z.forEach(z=>lbl('Cooler '+z[0]+' ('+((z[2]-z[1])*1000).toFixed(0)+' mm)',xc,(z[1]+z[2])/2,.3,'#ffb066'));
- lbl('Slag, level '+yt.toFixed(2)+' m',.9,yt,.3,'#ffd24a');lbl('Lubang slag 1,40 m',.9,1.4,.3,'#9fe870');lbl('FeNi sampai '+yF.toFixed(2)+' m',.9,yF,.3,'#ff8a5c');lbl('Tap hole FeNi 0,60 m',.9,.6,.3,'#ff8a5c');
+ lbl('Level slag: '+(yt-1.4).toFixed(2)+' m dari lubang slag',.9,yt,.3,'#ffd24a');lbl('Lubang slag (0 m)',.9,1.4,.3,'#9fe870');lbl('Batas FeNi: '+(1.4-yF).toFixed(2)+' m di bawah lubang',.9,yF,.3,'#ff8a5c');lbl('Tap hole FeNi: 0,80 m di bawah lubang',.9,.6,.3,'#ff8a5c');
  lbl('Tidal: sisa '+(Lm*1000).toFixed(0)+' dari '+(L*1000).toFixed(0)+' mm (−'+(wr[mi]*1000).toFixed(1)+' mm, −'+(wr[mi]/L*100).toFixed(1)+'%)',0,hm,.3,'#ff7aa8');
  lbl('Brick awal '+(L*1000).toFixed(0)+' mm (garis putih)',-L*sx,5.4,.3,'#ffffff');
  g$('sx').innerHTML='Irisan vertikal dinding (tinggi dihitung dari tengah hearth; molten di kanan, steel shell di kiri; ketebalan diperbesar ×'+sx.toFixed(1)+'). <b>Warna brick = temperatur</b> (hot face 1550 °C di bawah level slag, 950 °C gas di atasnya); <b style="color:#ff3b8a">merah muda = brick terkikis</b>; garis putih = ketebalan awal; kotak oranye = cooler Y/V/E sesuai tinggi aslinya; di atas cooler E dinding tanpa cooler.';
@@ -256,9 +261,9 @@ function furnace(){const p=cur.p,L=cur.L,xs=$('xs')*.6,th=10*Math.PI/180,tn=Math
  if(!ctl._set){camSet();ctl._set=1}}
 function runSim(){const A=$('ar'),rs=$('rs'),pr=$('sp'),sk=$('sk'),dt=.1,N=Math.round($('hz')/dt),kw=$('we')/1000,tf=$('tf');
  const win=g$('sch').value.split(',').map(x=>x.split('-').map(Number)).filter(x=>x.length===2&&!x.some(isNaN));
- const lm=$('lm'),yF=1.4-$('dfe'),lev=[Math.max($('l0'),lm)],wear=[Array(NBd).fill(0)],skim=[false];
- for(let k=1;k<=N;k++){const t=(k-1)*dt,sm=win.some(w=>t>=w[0]&&t<w[1]);skim.push(sm);
-  const l=Math.min(1.5,Math.max(lm,lev[k-1]+(pr-(sm?sk:0))/(rs*A)*dt));lev.push(l);const y=1.4+l,w=wear[k-1].slice();
+ const lm=$('lm'),fix=g$('lmode').value==='fix',yF=1.4-$('dfe'),lev=[$('l0')],wear=[Array(NBd).fill(0)],skim=[false];
+ for(let k=1;k<=N;k++){const t=(k-1)*dt,sm=!fix&&win.some(w=>t>=w[0]&&t<w[1])&&lev[k-1]>lm;skim.push(sm);
+  let l=fix?lev[0]:Math.min(1.5,Math.max(0,lev[k-1]+(pr-(sm?sk:0))/(rs*A)*dt));if(sm)l=Math.max(l,lm);lev.push(l);const y=1.4+l,w=wear[k-1].slice();
   for(let i=0;i<NBd;i++){const h=(i+.5)*5.4/NBd;let r=h<.6?0:h<yF?.3:h<y?1:0;if(h>=yF&&Math.abs(h-y)<.12)r+=tf;w[i]+=r*kw*dt}
   wear.push(w)}
  sim={lev,wear,skim,win,N,dt};g$('tm').max=N;if(+g$('tm').value>N)g$('tm').value=N}
@@ -266,9 +271,10 @@ function dtAt(k){const p=cur.p,L=cur.L,wr=sim.wear[k],yt=1.4+sim.lev[k],Tw=(p.Ti
  for(let i=0;i<NBd;i++){const h=(i+.5)*5.4/NBd;if(h<rg[0]||h>rg[1])continue;t+=band(p,L-wr[i],h<yt?p.Th:950,true,Tw,Rr,1).q;n++}return n?t/n:1}
 function upd(){if(!sim||!cur)return;const k=Math.min(+g$('tm').value,sim.N),wr=sim.wear[k],L=cur.L,p=cur.p;let mi=0;wr.forEach((w,i)=>{if(w>wr[mi])mi=i});
  const Lm=L-wr[mi],Tw=(p.Ti+p.To)/2,q=(p.Th-Tw)/(Lm/kbf(p,.6*p.Th)+p.tc/itp(TB.CU,100)+p.Rc+1/8000);
- const q0=dtAt(0),dT0=p.To-p.Ti,dTk=dT0*dtAt(k)/q0;lastInfo={ty:p.ty,t:k*sim.dt,T:sim.N*sim.dt,y:1.4+sim.lev[k],skim:sim.skim[k],Lm:Lm*1000,dec:wr[mi]*1000,pct:wr[mi]/L*100,h:(mi+.5)*5.4/NBd,dT:dTk,dT0,Lin:L*1000,fk:cur.qm*dtAt(k)/q0,fl:q};
+ const q0=dtAt(0),dT0=p.To-p.Ti,dTk=dT0*dtAt(k)/q0;lastInfo={ty:p.ty,t:k*sim.dt,T:sim.N*sim.dt,y:sim.lev[k],al:$('al'),alarm:sim.lev[k]>$('al'),skim:sim.skim[k],Lm:Lm*1000,dec:wr[mi]*1000,pct:wr[mi]/L*100,h:(mi+.5)*5.4/NBd,dT:dTk,dT0,Lin:L*1000,fk:cur.qm*dtAt(k)/q0,fl:q};
  g$('kmin').textContent=(Lm*1000).toFixed(0)+' mm';g$('kmh').textContent='pada '+((mi+.5)*5.4/NBd).toFixed(1)+' m, terkikis '+(wr[mi]*1000).toFixed(1)+' mm ('+(wr[mi]/L*100).toFixed(1)+'%)';
- g$('ss').innerHTML=`<b>Jam ke-${(k*sim.dt).toFixed(1)}</b> · level slag ${(1.4+sim.lev[k]).toFixed(2)} m (${sim.skim[k]?'SEDANG SKIMMING':'tidak skimming'}) · brick tersisa minimum <b>${(Lm*1000).toFixed(0)} mm</b> pada ketinggian ${((mi+.5)*5.4/NBd).toFixed(1)} m (awal ${(L*1000).toFixed(0)} mm) · estimasi flux 1D di titik itu ≈ ${(q/1000).toFixed(1)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft² · flux rata-rata cooler ${(lastInfo.fk/1000).toFixed(1)} kW/m² (${(lastInfo.fk*BT).toFixed(0)} Btu/h·ft²) · <b>ΔT air ≈ ${dTk.toFixed(2)} °C</b> (awal ${dT0.toFixed(2)}, ${dTk>=dT0?'+':''}${(dTk-dT0).toFixed(2)})`;
+ g$('ss').innerHTML=`<b>Jam ke-${(k*sim.dt).toFixed(1)}</b> · level slag ${sim.lev[k].toFixed(2)} m dari lubang slag (${sim.skim[k]?'SEDANG SKIMMING':'tidak skimming'}) · brick tersisa minimum <b>${(Lm*1000).toFixed(0)} mm</b> pada ketinggian ${((mi+.5)*5.4/NBd).toFixed(1)} m (awal ${(L*1000).toFixed(0)} mm) · estimasi flux 1D di titik itu ≈ ${(q/1000).toFixed(1)} kW/m² = ${(q*BT).toFixed(0)} Btu/h·ft² · flux rata-rata cooler ${(lastInfo.fk/1000).toFixed(1)} kW/m² (${(lastInfo.fk*BT).toFixed(0)} Btu/h·ft²) · <b>ΔT air ≈ ${dTk.toFixed(2)} °C</b> (awal ${dT0.toFixed(2)}, ${dTk>=dT0?'+':''}${(dTk-dT0).toFixed(2)})`+(lastInfo.alarm?`<br><b style="color:#ff4d4f">⚠ ALARM: level slag ${sim.lev[k].toFixed(2)} m dari lubang slag melebihi cooler E (batas ${$('al')} m)</b>`:'');
+ {const ab=g$('alarm');ab.style.display=lastInfo.alarm?'block':'none';ab.textContent='⚠ ALARM: level slag '+sim.lev[k].toFixed(2)+' m melebihi cooler E (batas '+$('al')+' m)'}
  const c=g$('ch'),x=c.getContext('2d'),W=c.width,H=c.height,tx=t=>40+t/(sim.N*sim.dt)*(W-60),ly=l=>H-25-l/1.6*(H-40),st=getComputedStyle(document.documentElement);
  x.clearRect(0,0,W,H);x.fillStyle='rgba(255,180,50,.25)';sim.win.forEach(w=>x.fillRect(tx(w[0]),5,tx(w[1])-tx(w[0]),H-30));
  x.strokeStyle=st.getPropertyValue('--ac').trim();x.lineWidth=2;x.beginPath();sim.lev.forEach((l,i)=>i?x.lineTo(tx(i*sim.dt),ly(l)):x.moveTo(tx(0),ly(l)));x.stroke();x.setLineDash([5,4]);x.strokeStyle=st.getPropertyValue('--mu').trim();x.beginPath();x.moveTo(40,ly($('lm')));x.lineTo(W-20,ly($('lm')));x.stroke();x.setLineDash([]);
@@ -313,17 +319,23 @@ g$('go').onclick=()=>{g$('rL').textContent='menghitung…';setTimeout(run,30)};
 g$('tp').onchange=()=>{g$('np').value=g$('tp').value==='V'?3:2;fillIds();totalFlow()};g$('zn').onchange=fillIds;g$('ci').onchange=setA;
 ['xs','hs','hst','tb','wx'].forEach(i=>g$(i).oninput=build);g$('vw').onchange=()=>{build();camSet()};g$('sm').onchange=()=>{build();camSet()};
 g$('np').oninput=g$('fl').oninput=totalFlow;g$('tm').oninput=upd;
-['sp','sk','sch','ar','rs','l0','lm','dfe','we','tf','hz'].forEach(i=>g$(i).onchange=()=>{runSim();upd()});
+['sp','sk','ar','rs','l0','lm','dfe','we','tf','hz','lmode','al'].forEach(i=>g$(i).onchange=()=>{runSim();upd()});
+function skSync(){g$('sch').value=[...g$('skrows').querySelectorAll('.skr')].map(d=>{const i=d.querySelectorAll('input'),a=+i[0].value;return a+'-'+(a+(+i[1].value))}).join(', ')}
+function skRows(){const n=Math.max(0,Math.min(24,Math.round($('nsk')))),box=g$('skrows'),old=[...box.querySelectorAll('.skr')].map(d=>{const i=d.querySelectorAll('input');return[+i[0].value,+i[1].value]});let h='',prev=null;
+ for(let i=0;i<n;i++){const v=old[i]||[prev===null?2:prev+4,2];prev=v[0];h+=`<div class="skr" style="display:flex;gap:6px;align-items:center;margin:4px 0"><span class="mu" style="width:78px">Skimming ${i+1}</span><span class="mu">mulai jam</span><input type="number" step="0.5" value="${v[0]}" style="width:62px"><span class="mu">lama</span><input type="number" step="0.5" min="0.5" value="${v[1]}" style="width:54px"><span class="mu">jam</span></div>`}
+ box.innerHTML=h;box.querySelectorAll('input').forEach(x=>x.onchange=()=>{skSync();runSim();upd()});skSync()}
+g$('nsk').onchange=()=>{skRows();runSim();upd()};skRows();
 g$('pm').onclick=()=>{pan=!pan;ctl.mouseButtons.LEFT=pan?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;ctl.touches={ONE:pan?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};g$('pm').textContent=pan?'Mode: Geser':'Mode: Putar'};
 g$('rc').onclick=camSet;
 function playSim(onEnd){if(playT)clearInterval(playT);g$('pl').textContent='⏸ Jeda';playT=setInterval(()=>{const v=+g$('tm').value+1;if(v>sim.N){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar';if(onEnd)onEnd();return}g$('tm').value=v;upd()},120)}
 g$('pl').onclick=()=>{if(playT){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar';return}if(!sim)return;if(+g$('tm').value>=sim.N)g$('tm').value=0;playSim()};
 function drawRec(){const c=ren.domElement;if(recCv.width!==c.width||recCv.height!==c.height){recCv.width=c.width;recCv.height=c.height}
  const w=recCv.width,h=recCv.height,f=Math.max(11,w/62),x=recCtx,I=lastInfo;x.drawImage(c,0,0);if(!I)return;
- const ln=['Simulasi furnace – cooler '+I.ty,'Jam ke-'+I.t.toFixed(1)+' · level slag '+I.y.toFixed(2)+' m'+(I.skim?' · SKIMMING':''),'Sisa brick minimum: '+I.Lm.toFixed(0)+' dari '+I.Lin.toFixed(0)+' mm (−'+I.dec.toFixed(1)+' mm, −'+I.pct.toFixed(1)+'%) di '+I.h.toFixed(1)+' m','Heat flux cooler: '+(I.fk/1000).toFixed(1)+' kW/m² ('+(I.fk*BT).toFixed(0)+' Btu/h·ft²)','Flux lokal titik tipis: '+(I.fl/1000).toFixed(1)+' kW/m² ('+(I.fl*BT).toFixed(0)+' Btu/h·ft²)','ΔT air: '+I.dT.toFixed(2)+' °C (awal '+I.dT0.toFixed(2)+', '+(I.dT>=I.dT0?'+':'')+(I.dT-I.dT0).toFixed(2)+')'];
+ const ln=['Simulasi furnace – cooler '+I.ty,'Jam ke-'+I.t.toFixed(1)+' · level slag '+I.y.toFixed(2)+' m dari lubang slag'+(I.skim?' · SKIMMING':''),'Sisa brick minimum: '+I.Lm.toFixed(0)+' dari '+I.Lin.toFixed(0)+' mm (−'+I.dec.toFixed(1)+' mm, −'+I.pct.toFixed(1)+'%) di '+I.h.toFixed(1)+' m','Heat flux cooler: '+(I.fk/1000).toFixed(1)+' kW/m² ('+(I.fk*BT).toFixed(0)+' Btu/h·ft²)','Flux lokal titik tipis: '+(I.fl/1000).toFixed(1)+' kW/m² ('+(I.fl*BT).toFixed(0)+' Btu/h·ft²)','ΔT air: '+I.dT.toFixed(2)+' °C (awal '+I.dT0.toFixed(2)+', '+(I.dT>=I.dT0?'+':'')+(I.dT-I.dT0).toFixed(2)+')'];
  x.font='600 '+f+'px system-ui,sans-serif';const pw=Math.max(...ln.map(l=>x.measureText(l).width))+f*1.8,ph=ln.length*f*1.5+f*.6;
  x.fillStyle='rgba(10,12,16,.78)';x.fillRect(f*.6,f*.6,pw,ph);
  ln.forEach((l,i)=>{x.font=(i===0?'700 ':'500 ')+f+'px system-ui,sans-serif';x.fillStyle=['#fff','#fff','#ff9fbf','#8ee0ff','#8ee0ff','#ffc47a'][i];x.fillText(l,f*1.4,f*.6+f*1.5*(i+1))});
+ if(I.alarm){const t='⚠ ALARM: level slag '+I.y.toFixed(2)+' m melebihi cooler E (batas '+I.al+' m)';x.font='700 '+f*1.1+'px system-ui,sans-serif';const tw=x.measureText(t).width+f*2;x.fillStyle='#c92a2a';x.fillRect(w-tw-f*.6,f*.6,tw,f*1.9);x.fillStyle='#fff';x.fillText(t,w-tw-f*.6+f,f*.6+f*1.4)}
  drawLabels(x,w,h,ph+f*1.4);
  x.fillStyle='rgba(255,255,255,.25)';x.fillRect(0,h-6,w,6);x.fillStyle='#ff8a4c';x.fillRect(0,h-6,w*Math.min(1,I.t/I.T),6)}
 function stopRec(){if(mr&&mr.state!=='inactive')mr.stop();recOn=false;g$('rec').textContent='⏺ Rekam';if(playT){clearInterval(playT);playT=null;g$('pl').textContent='▶ Putar'}}
